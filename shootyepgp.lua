@@ -125,6 +125,24 @@ local admincmd, membercmd = {type = "group", handler = sepgp, args = {
       end,
       order = 7,
     },
+    roll = {
+      type = "execute",
+      name = "normal roll",
+      desc = "Make a normal roll based on your EP",
+      func = function() 
+        sepgp:RollCommand(false)
+      end,
+      order = 8,
+    },
+    rollSR = {
+      type = "execute",
+      name = "SR roll",
+      desc = "Make a soft reserve roll based on your EP",
+      func = function() 
+        sepgp:RollCommand(true)
+      end,
+      order = 9,
+    },
   }},
 {type = "group", handler = sepgp, args = {
     show = {
@@ -163,6 +181,24 @@ local admincmd, membercmd = {type = "group", handler = sepgp, args = {
         sepgp:defaultPrint(L["Restarted"])
       end,
       order = 4,
+    },
+    roll = {
+      type = "execute",
+      name = "normal roll",
+      desc = "Make a normal roll based on your EP",
+      func = function() 
+        sepgp:RollCommand(false)
+      end,
+      order = 5,
+    },
+    rollSR = {
+      type = "execute",
+      name = "SR roll",
+      desc = "Make a soft reserve roll based on your EP",
+      func = function() 
+        sepgp:RollCommand(true)
+      end,
+      order = 6,
     },    
   }}
   --[[{
@@ -2427,6 +2463,37 @@ function sepgp:EasyMenu(menuList, menuFrame, anchor, x, y, displayMode, level)
   UIDropDownMenu_Initialize(menuFrame, function() sepgp:EasyMenu_Initialize(level, menuList) end, displayMode, level)
   ToggleDropDownMenu(1, nil, menuFrame, anchor, x, y)
 end
-
+function sepgp:RollCommand(isSRRoll)
+  local playerName = UnitName("player")
+  local ep
+  
+  -- Check if the player is an alt
+  if sepgp_altspool then
+    local main = self:parseAlt(playerName)
+    if main then
+      -- If the player is an alt, use the main's EP
+      ep = self:get_ep_v3(main) or 0
+    else
+      -- If not an alt, use the player's own EP
+      ep = self:get_ep_v3(playerName) or 0
+    end
+  else
+    -- If alt pooling is not enabled, just use the player's EP
+    ep = self:get_ep_v3(playerName) or 0
+  end
+  
+  -- Calculate the roll range based on whether it's an SR roll or not
+  local minRoll, maxRoll
+  if isSRRoll then
+    minRoll = 101 + ep
+    maxRoll = 200 + ep
+  else
+    minRoll = 1 + ep
+    maxRoll = 100 + ep
+  end
+  
+  -- Perform the roll
+  RandomRoll(minRoll, maxRoll)
+end
 -- GLOBALS: sepgp_saychannel,sepgp_groupbyclass,sepgp_groupbyarmor,sepgp_groupbyrole,sepgp_raidonly,sepgp_decay,sepgp_minep,sepgp_reservechannel,sepgp_main,sepgp_progress,sepgp_discount,sepgp_altspool,sepgp_altpercent,sepgp_log,sepgp_dbver,sepgp_looted,sepgp_debug,sepgp_fubar
 -- GLOBALS: sepgp,sepgp_prices,sepgp_standings,sepgp_bids,sepgp_loot,sepgp_reserves,sepgp_alts,sepgp_logs
