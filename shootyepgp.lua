@@ -134,7 +134,7 @@ local admincmd, membercmd = {type = "group", handler = sepgp, args = {
       end,
       order = 8,
     },
-    rollSR = {
+    sr = {
       type = "execute",
       name = "SR roll",
       desc = "Make a soft reserve roll based on your EP",
@@ -143,7 +143,7 @@ local admincmd, membercmd = {type = "group", handler = sepgp, args = {
       end,
       order = 9,
     },
-    rollDSR = {
+    dsr = {
       type = "execute",
       name = "Double SR roll",
       desc = "Make a double soft reserve roll based on your EP",
@@ -200,7 +200,7 @@ local admincmd, membercmd = {type = "group", handler = sepgp, args = {
       end,
       order = 5,
     },
-    rollSR = {
+    sr = {
       type = "execute",
       name = "SR roll",
       desc = "Make a soft reserve roll based on your EP",
@@ -209,7 +209,7 @@ local admincmd, membercmd = {type = "group", handler = sepgp, args = {
       end,
       order = 6,
     },
-    rollDSR = {
+    dsr = {
       type = "execute",
       name = "Double SR roll",
       desc = "Make a double soft reserve roll based on your EP",
@@ -723,7 +723,7 @@ function sepgp:delayedInit()
   end
   -- init options and comms
   self._options = self:buildMenu()
-  self:RegisterChatCommand({"/shooty","/sepgp","/shootyepgp"},self.cmdtable())
+  self:RegisterChatCommand({"/shooty","/sepgp","/shootyepgp","/ret"},self.cmdtable())
   self:RegisterEvent("CHAT_MSG_ADDON","addonComms")  
   -- broadcast our version
   local addonMsg = string.format("VERSION;%s;%d",sepgp._versionString,major_ver)
