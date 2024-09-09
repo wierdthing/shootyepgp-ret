@@ -130,7 +130,7 @@ local admincmd, membercmd = {type = "group", handler = sepgp, args = {
       name = "normal roll",
       desc = "Make a normal roll based on your EP",
       func = function() 
-        sepgp:RollCommand(false)
+        sepgp:RollCommand(false,false)
       end,
       order = 8,
     },
@@ -139,9 +139,18 @@ local admincmd, membercmd = {type = "group", handler = sepgp, args = {
       name = "SR roll",
       desc = "Make a soft reserve roll based on your EP",
       func = function() 
-        sepgp:RollCommand(true)
+        sepgp:RollCommand(true,false)
       end,
       order = 9,
+    },
+    rollDSR = {
+      type = "execute",
+      name = "Double SR roll",
+      desc = "Make a double soft reserve roll based on your EP",
+      func = function() 
+        sepgp:RollCommand(true,true)
+      end,
+      order = 10,
     },
   }},
 {type = "group", handler = sepgp, args = {
@@ -187,7 +196,7 @@ local admincmd, membercmd = {type = "group", handler = sepgp, args = {
       name = "normal roll",
       desc = "Make a normal roll based on your EP",
       func = function() 
-        sepgp:RollCommand(false)
+        sepgp:RollCommand(false,false)
       end,
       order = 5,
     },
@@ -196,9 +205,18 @@ local admincmd, membercmd = {type = "group", handler = sepgp, args = {
       name = "SR roll",
       desc = "Make a soft reserve roll based on your EP",
       func = function() 
-        sepgp:RollCommand(true)
+        sepgp:RollCommand(true,false)
       end,
       order = 6,
+    },
+    rollDSR = {
+      type = "execute",
+      name = "Double SR roll",
+      desc = "Make a double soft reserve roll based on your EP",
+      func = function() 
+        sepgp:RollCommand(true,true)
+      end,
+      order = 7,
     },    
   }}
   --[[{
@@ -2463,7 +2481,7 @@ function sepgp:EasyMenu(menuList, menuFrame, anchor, x, y, displayMode, level)
   UIDropDownMenu_Initialize(menuFrame, function() sepgp:EasyMenu_Initialize(level, menuList) end, displayMode, level)
   ToggleDropDownMenu(1, nil, menuFrame, anchor, x, y)
 end
-function sepgp:RollCommand(isSRRoll)
+function sepgp:RollCommand(isSRRoll,isDSRRoll)
   local playerName = UnitName("player")
   local ep
   
@@ -2487,6 +2505,10 @@ function sepgp:RollCommand(isSRRoll)
   if isSRRoll then
     minRoll = 101 + ep
     maxRoll = 200 + ep
+    if isDSRRoll then
+      minRoll = 101 + ep + 20
+      maxRoll = 200 + ep + 20
+    end
   else
     minRoll = 1 + ep
     maxRoll = 100 + ep
