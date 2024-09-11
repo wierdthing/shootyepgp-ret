@@ -2569,7 +2569,6 @@ function sepgp:parsePugEpUpdate(message, channelName)
           sepgp_pugEP[guildName] = {}
         end
         sepgp_pugEP[guildName][pugName] = tonumber(ep)
-        sepgp_pugEP = sepgp_pugEP
     
         self:defaultPrint(string.format("Updated EP for %s in guild %s: %d", pugName, guildName, tonumber(ep)))
         end
@@ -2597,7 +2596,7 @@ function sepgp:getAllPugs()
   local pugs = {}
   for i = 1, GetNumGuildMembers(1) do
     local guildMemberName, _, _, guildMemberLevel, _, _, _, officerNote = GetGuildRosterInfo(i)
-    if officerNote and officerNote ~= ''
+    if officerNote and officerNote ~= '' then
       local pugName = string.match(officerNote, "{pug:([^}]+)}")
       if pugName then
         pugs[guildMemberName] = pugName
