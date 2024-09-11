@@ -2546,10 +2546,12 @@ end
 function sepgp:isPug(name)
   for i = 1, GetNumGuildMembers(1) do
     local guildMemberName, _, _, _, _, _, _, officerNote = GetGuildRosterInfo(i)
-    local pugName = string.match(officerNote, "{pug:([^}]+)}")
-      if pugName == name then
-        return true, guildMemberName
-      end
+    if officerNote and officerNote ~= '' then
+      local pugName = string.match(officerNote, "{pug:([^}]+)}")
+        if pugName == name then
+          return true, guildMemberName
+        end
+    end
   end
   return false
 end
@@ -2595,9 +2597,11 @@ function sepgp:getAllPugs()
   local pugs = {}
   for i = 1, GetNumGuildMembers(1) do
     local guildMemberName, _, _, guildMemberLevel, _, _, _, officerNote = GetGuildRosterInfo(i)
-    local pugName = string.match(officerNote, "{pug:([^}]+)}")
-    if pugName then
-      pugs[guildMemberName] = pugName
+    if officerNote and officerNote ~= ''
+      local pugName = string.match(officerNote, "{pug:([^}]+)}")
+      if pugName then
+        pugs[guildMemberName] = pugName
+      end
     end
   end
   return pugs
