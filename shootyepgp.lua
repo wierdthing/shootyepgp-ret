@@ -2547,7 +2547,7 @@ function sepgp:isPug(name)
   for i = 1, GetNumGuildMembers(1) do
     local guildMemberName, _, _, _, _, _, _, officerNote = GetGuildRosterInfo(i)
     if officerNote and officerNote ~= '' then
-      local pugName = string.match(officerNote, "{pug:([^}]+)}")
+      local _,_,pugName = string.find(officerNote, "{pug:([^}]+)}")
         if pugName == name then
           return true, guildMemberName
         end
@@ -2559,11 +2559,11 @@ function sepgp:sendPugEpUpdate(pugName, ep)
   SendChatMessage(string.format("Pug %s has %d EP", pugName, ep), "CHANNEL", nil, GetChannelName("RetPugs"))
 end
 function sepgp:parsePugEpUpdate(message, channelName)
-  local pugName, ep = string.match(message, "Pug (%S+) has (%d+) EP")
+  local _, _, pugName, ep = string.find(message, "Pug (%S+) has (%d+) EP")
   local playerName = UnitName("player")
   if pugName == playerName then
     if pugName and ep then
-      local guildName = string.match(channelName, "^(.+)Pugs$")
+      local _, _, guildName = string.find(channelName, "^(.+)Pugs$")
       if guildName then
         if not sepgp_pugEP[guildName] then
           sepgp_pugEP[guildName] = {}
@@ -2597,7 +2597,7 @@ function sepgp:getAllPugs()
   for i = 1, GetNumGuildMembers(1) do
     local guildMemberName, _, _, guildMemberLevel, _, _, _, officerNote = GetGuildRosterInfo(i)
     if officerNote and officerNote ~= '' then
-      local pugName = string.match(officerNote, "{pug:([^}]+)}")
+      local _, _, pugName = string.find(officerNote, "{pug:([^}]+)}")
       if pugName then
         pugs[guildMemberName] = pugName
       end
