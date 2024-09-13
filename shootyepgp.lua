@@ -125,33 +125,6 @@ local admincmd, membercmd = {type = "group", handler = sepgp, args = {
       end,
       order = 7,
     },
-    roll = {
-      type = "execute",
-      name = "normal roll",
-      desc = "Make a normal roll based on your EP",
-      func = function() 
-        sepgp:RollCommand(false,false)
-      end,
-      order = 8,
-    },
-    sr = {
-      type = "execute",
-      name = "SR roll",
-      desc = "Make a soft reserve roll based on your EP",
-      func = function() 
-        sepgp:RollCommand(true,false)
-      end,
-      order = 9,
-    },
-    dsr = {
-      type = "execute",
-      name = "Double SR roll",
-      desc = "Make a double soft reserve roll based on your EP",
-      func = function() 
-        sepgp:RollCommand(true,true)
-      end,
-      order = 10,
-    },
   }},
 {type = "group", handler = sepgp, args = {
     show = {
@@ -191,33 +164,6 @@ local admincmd, membercmd = {type = "group", handler = sepgp, args = {
       end,
       order = 4,
     },
-    roll = {
-      type = "execute",
-      name = "normal roll",
-      desc = "Make a normal roll based on your EP",
-      func = function() 
-        sepgp:RollCommand(false,false)
-      end,
-      order = 5,
-    },
-    sr = {
-      type = "execute",
-      name = "SR roll",
-      desc = "Make a soft reserve roll based on your EP",
-      func = function() 
-        sepgp:RollCommand(true,false)
-      end,
-      order = 6,
-    },
-    dsr = {
-      type = "execute",
-      name = "Double SR roll",
-      desc = "Make a double soft reserve roll based on your EP",
-      func = function() 
-        sepgp:RollCommand(true,true)
-      end,
-      order = 7,
-    },    
   }}
   --[[{
     type = "execute",
@@ -524,8 +470,8 @@ function sepgp:OnEnable() -- PLAYER_LOGIN (2)
   --table.insert(sepgp_debug,{[date("%b/%d %H:%M:%S")]="OnEnable"})
   sepgp._playerLevel = UnitLevel("player")
   sepgp.extratip = (sepgp.extratip) or CreateFrame("GameTooltip","shootyepgp_tooltip",UIParent,"GameTooltipTemplate")
-  sepgp._versionString = GetAddOnMetadata("shootyepgp","Version")
-  sepgp._websiteString = GetAddOnMetadata("shootyepgp","X-Website")
+  sepgp._versionString = GetAddOnMetadata("shootyepgp_ret","Version")
+  sepgp._websiteString = GetAddOnMetadata("shootyepgp_ret","X-Website")
   
   if (IsInGuild()) then
     if (GetNumGuildMembers()==0) then
@@ -737,8 +683,29 @@ function sepgp:delayedInit()
   end
   -- init options and comms
   self._options = self:buildMenu()
-  self:RegisterChatCommand({"/shooty","/sepgp","/shootyepgp","/ret"},self.cmdtable())
+  self:RegisterChatCommand({"/shooty","/sepgp","/shootyepgp"},self.cmdtable())
   self:RegisterChatCommand({"/retep"}, function() sepgp:CheckPugEP() end)
+  self:RegisterChatCommand({"/retroll"}, function()
+    self:RollCommand(false, false, 0)
+  end)
+  local function calculateBonus(input)
+    local number = tonumber(input)
+    if number and number >= 1 and number <= 10 then
+        return number * 20
+    end
+    return 0  -- Return 0 if input is invalid
+end
+  
+
+self:RegisterChatCommand({"/retsr"}, function(input)
+  local bonus = calculateBonus(input)
+  self:RollCommand(true, false, bonus)
+end)
+
+self:RegisterChatCommand({"/retdsr"}, function(input)
+  local bonus = calculateBonus(input)
+  self:RollCommand(true, true, bonus)
+end)
   self:RegisterChatCommand({"/updatepugep"}, function() sepgp:updateAllPugEP() end)
   self:RegisterEvent("CHAT_MSG_ADDON","addonComms")  
   -- broadcast our version
@@ -2504,7 +2471,7 @@ function sepgp:EasyMenu(menuList, menuFrame, anchor, x, y, displayMode, level)
   UIDropDownMenu_Initialize(menuFrame, function() sepgp:EasyMenu_Initialize(level, menuList) end, displayMode, level)
   ToggleDropDownMenu(1, nil, menuFrame, anchor, x, y)
 end
-function sepgp:RollCommand(isSRRoll,isDSRRoll)
+function sepgp:RollCommand(isSRRoll,isDSRRoll,bonus)
   local playerName = UnitName("player")
   local ep
   
@@ -2529,19 +2496,42 @@ function sepgp:RollCommand(isSRRoll,isDSRRoll)
   -- Calculate the roll range based on whether it's an SR roll or not
   local minRoll, maxRoll
   if isSRRoll then
-    minRoll = 101 + ep
-    maxRoll = 200 + ep
+    minRoll = 101 + ep + bonus
+    maxRoll = 200 + ep + bonus
     if isDSRRoll then
-      minRoll = 101 + ep + 20
-      maxRoll = 200 + ep + 20
+      minRoll = 101 + ep + 20 + bonus
+      maxRoll = 200 + ep + 20 + bonus
     end
   else
     minRoll = 1 + ep
     maxRoll = 100 + ep
   end
   
-  -- Perform the roll
   RandomRoll(minRoll, maxRoll)
+  
+  -- Prepare the announcement message
+  local message
+  local bonusText = ""
+  if bonus > 0 then
+    local weeks = math.floor(bonus / 20)
+    bonusText = string.format(" +%d for %d weeks", bonus, weeks)
+  end
+  
+  if isSRRoll then
+    if isDSRRoll then
+      message = string.format("I rolled double SR %d - %d with %d EP%s", minRoll, maxRoll, ep, bonusText)
+    else
+      message = string.format("I rolled SR %d - %d with %d EP%s", minRoll, maxRoll, ep, bonusText)
+    end
+  else
+    message = string.format("I rolled %d - %d with %d EP%s", minRoll, maxRoll, ep, bonusText)
+  end
+  
+  -- Determine the chat channel
+  local chatType = UnitInRaid("player") and "RAID" or "SAY"
+  
+  -- Send the message
+  SendChatMessage(message, chatType)
 end
 function sepgp:isPug(name)
   for i = 1, GetNumGuildMembers(1) do
