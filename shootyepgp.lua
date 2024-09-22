@@ -125,6 +125,42 @@ local admincmd, membercmd = {type = "group", handler = sepgp, args = {
       end,
       order = 7,
     },
+    roll = {
+      type = "execute",
+      name = "Roll",
+      desc = "Roll with your EP Points",
+      func = function() 
+        sepgp:RollCommand(false,false,0)
+      end,
+      order = 8,
+    },
+    sr = {
+      type = "execute",
+      name = "Roll SR",
+      desc = "Roll Soft Reservie with your EP Points",
+      func = function() 
+        sepgp:RollCommand(true,false,0)
+      end,
+      order = 9,
+    },
+    dsr = {
+      type = "execute",
+      name = "Roll Double SR",
+      desc = "Roll Double Soft Reservie with your EP Points",
+      func = function() 
+        sepgp:RollCommand(true,true,0)
+      end,
+      order = 10,
+    },
+    ep = {
+      type = "execute",
+      name = "Check your pug EP",
+      desc = "Checks your pug EP",
+      func = function() 
+        sepgp:CheckPugEP()
+      end,
+      order = 11,
+    },
   }},
 {type = "group", handler = sepgp, args = {
     show = {
@@ -163,6 +199,42 @@ local admincmd, membercmd = {type = "group", handler = sepgp, args = {
         sepgp:defaultPrint(L["Restarted"])
       end,
       order = 4,
+    },
+    roll = {
+      type = "execute",
+      name = "Roll",
+      desc = "Roll with your EP Points",
+      func = function() 
+        sepgp:RollCommand(false,false,0)
+      end,
+      order = 5,
+    },
+    sr = {
+      type = "execute",
+      name = "Roll SR",
+      desc = "Roll Soft Reservie with your EP Points",
+      func = function() 
+        sepgp:RollCommand(true,false,0)
+      end,
+      order = 6,
+    },
+    dsr = {
+      type = "execute",
+      name = "Roll Double SR",
+      desc = "Roll Double Soft Reservie with your EP Points",
+      func = function() 
+        sepgp:RollCommand(true,true,0)
+      end,
+      order = 7,
+    },
+    ep = {
+      type = "execute",
+      name = "Check your pug EP",
+      desc = "Checks your pug EP",
+      func = function() 
+        sepgp:CheckPugEP()
+      end,
+      order = 8,
     },
   }}
   --[[{
@@ -683,29 +755,19 @@ function sepgp:delayedInit()
   end
   -- init options and comms
   self._options = self:buildMenu()
-  self:RegisterChatCommand({"/shooty","/sepgp","/shootyepgp"},self.cmdtable())
-  self:RegisterChatCommand({"/retep"}, function() sepgp:CheckPugEP() end)
-  self:RegisterChatCommand({"/retroll"}, function()
-    self:RollCommand(false, false, 0)
-  end)
+  self:RegisterChatCommand({"/shooty","/sepgp","/shootyepgp","/ret"},self.cmdtable())
   local function calculateBonus(input)
     local number = tonumber(input)
-    if number and number >= 1 and number <= 10 then
+    if number and number >= 2 and number <= 10 then
         return number * 20
     end
-    return 0  -- Return 0 if input is invalid
-end
+    return 20  -- Return 20 for first week if input is invalid
+  end
   
-
-self:RegisterChatCommand({"/retsr"}, function(input)
-  local bonus = calculateBonus(input)
-  self:RollCommand(true, false, bonus)
-end)
-
-self:RegisterChatCommand({"/retdsr"}, function(input)
-  local bonus = calculateBonus(input)
-  self:RollCommand(true, true, bonus)
-end)
+  self:RegisterChatCommand({"/retcsr"}, function(input)
+    local bonus = calculateBonus(input)
+    self:RollCommand(true, false, bonus)
+  end)
   self:RegisterChatCommand({"/updatepugep"}, function() sepgp:updateAllPugEP() end)
   self:RegisterEvent("CHAT_MSG_ADDON","addonComms")  
   -- broadcast our version
@@ -721,6 +783,7 @@ end)
     end
   end
   self:defaultPrint(string.format(L["v%s Loaded."],sepgp._versionString))
+  JoinChannelByName("RetPugs")
 end
 
 function sepgp:AddDataToTooltip(tooltip,itemlink,itemstring,is_master)
@@ -2496,11 +2559,11 @@ function sepgp:RollCommand(isSRRoll,isDSRRoll,bonus)
   -- Calculate the roll range based on whether it's an SR roll or not
   local minRoll, maxRoll
   if isSRRoll then
-    minRoll = 101 + ep + bonus
-    maxRoll = 200 + ep + bonus
+    minRoll = 101 + ep
+    maxRoll = 200 + ep
     if isDSRRoll then
-      minRoll = 101 + ep + 20 + bonus
-      maxRoll = 200 + ep + 20 + bonus
+      minRoll = 101 + ep + 20
+      maxRoll = 200 + ep + 20
     end
   else
     minRoll = 1 + ep
@@ -2510,23 +2573,23 @@ function sepgp:RollCommand(isSRRoll,isDSRRoll,bonus)
   RandomRoll(minRoll, maxRoll)
   
   -- Prepare the announcement message
-  local message
   local bonusText = ""
+  local message = string.format("I rolled %d - %d with %d EP%s", minRoll, maxRoll, ep, bonusText)
+
+  if(isSRRoll) then
+    message = string.format("I rolled SR %d - %d with %d EP%s", minRoll, maxRoll, ep, bonusText)
+  end
+  if(isDSRRoll) then
+    message = string.format("I rolled Double SR %d - %d with %d EP%s", minRoll, maxRoll, ep, bonusText)
+  end
+
   if bonus > 0 then
     local weeks = math.floor(bonus / 20)
     bonusText = string.format(" +%d for %d weeks", bonus, weeks)
+    minRoll = minRoll + bonus
+    maxRoll = maxRoll + bonus
+    message = string.format("I rolled Cumulative SR %d - %d with %d EP%s", minRoll, maxRoll, ep, bonusText)
   end
-  
-  if isSRRoll then
-    if isDSRRoll then
-      message = string.format("I rolled double SR %d - %d with %d EP%s", minRoll, maxRoll, ep, bonusText)
-    else
-      message = string.format("I rolled SR %d - %d with %d EP%s", minRoll, maxRoll, ep, bonusText)
-    end
-  else
-    message = string.format("I rolled %d - %d with %d EP%s", minRoll, maxRoll, ep, bonusText)
-  end
-  
   -- Determine the chat channel
   local chatType = UnitInRaid("player") and "RAID" or "SAY"
   
