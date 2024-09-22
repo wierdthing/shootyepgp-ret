@@ -15,7 +15,7 @@ sepgp.VARS = {
   decay = 0.9,
   max = 1000,
   timeout = 60,
-  minlevel = 55,
+  minlevel = 1,
   maxloglines = 500,
   prefix = "SEPGP_PREFIX",
   reservechan = "Reserves",
@@ -127,30 +127,39 @@ local admincmd, membercmd = {type = "group", handler = sepgp, args = {
     },
     roll = {
       type = "execute",
-      name = "normal roll",
-      desc = "Make a normal roll based on your EP",
+      name = "Roll",
+      desc = "Roll with your EP Points",
       func = function() 
-        sepgp:RollCommand(false,false)
+        sepgp:RollCommand(false,false,0)
       end,
       order = 8,
     },
     sr = {
       type = "execute",
-      name = "SR roll",
-      desc = "Make a soft reserve roll based on your EP",
+      name = "Roll SR",
+      desc = "Roll Soft Reservie with your EP Points",
       func = function() 
-        sepgp:RollCommand(true,false)
+        sepgp:RollCommand(true,false,0)
       end,
       order = 9,
     },
     dsr = {
       type = "execute",
-      name = "Double SR roll",
-      desc = "Make a double soft reserve roll based on your EP",
+      name = "Roll Double SR",
+      desc = "Roll Double Soft Reservie with your EP Points",
       func = function() 
-        sepgp:RollCommand(true,true)
+        sepgp:RollCommand(true,true,0)
       end,
       order = 10,
+    },
+    ep = {
+      type = "execute",
+      name = "Check your pug EP",
+      desc = "Checks your pug EP",
+      func = function() 
+        sepgp:CheckPugEP()
+      end,
+      order = 11,
     },
   }},
 {type = "group", handler = sepgp, args = {
@@ -193,31 +202,40 @@ local admincmd, membercmd = {type = "group", handler = sepgp, args = {
     },
     roll = {
       type = "execute",
-      name = "normal roll",
-      desc = "Make a normal roll based on your EP",
+      name = "Roll",
+      desc = "Roll with your EP Points",
       func = function() 
-        sepgp:RollCommand(false,false)
+        sepgp:RollCommand(false,false,0)
       end,
       order = 5,
     },
     sr = {
       type = "execute",
-      name = "SR roll",
-      desc = "Make a soft reserve roll based on your EP",
+      name = "Roll SR",
+      desc = "Roll Soft Reservie with your EP Points",
       func = function() 
-        sepgp:RollCommand(true,false)
+        sepgp:RollCommand(true,false,0)
       end,
       order = 6,
     },
     dsr = {
       type = "execute",
-      name = "Double SR roll",
-      desc = "Make a double soft reserve roll based on your EP",
+      name = "Roll Double SR",
+      desc = "Roll Double Soft Reservie with your EP Points",
       func = function() 
-        sepgp:RollCommand(true,true)
+        sepgp:RollCommand(true,true,0)
       end,
       order = 7,
-    },    
+    },
+    ep = {
+      type = "execute",
+      name = "Check your pug EP",
+      desc = "Checks your pug EP",
+      func = function() 
+        sepgp:CheckPugEP()
+      end,
+      order = 8,
+    },
   }}
   --[[{
     type = "execute",
@@ -310,6 +328,14 @@ function sepgp:buildMenu()
       order = 60,
       hidden = function() return not (admin()) end,
       func = function() sepgp:afkcheck_reserves() end
+    }
+    options.args["updatePugs"] = {
+      type = "execute",
+      name = "Update Pug EP",
+      desc = "Update Pug EP",
+      order = 62,
+      hidden = function() return not (admin()) end,
+      func = function() sepgp:updateAllPugEP() end
     }
     options.args["alts"] = {
       type = "toggle",
@@ -506,6 +532,7 @@ function sepgp:OnInitialize() -- ADDON_LOADED (1) unless LoD
   if sepgp_log == nil then sepgp_log = {} end
   if sepgp_looted == nil then sepgp_looted = {} end
   if sepgp_debug == nil then sepgp_debug = {} end
+  if sepgp_pugEP == nil then sepgp_pugEP = {} end
   self:RegisterDB("sepgp_fubar")
   self:RegisterDefaults("char",{})
   --table.insert(sepgp_debug,{[date("%b/%d %H:%M:%S")]="OnInitialize"})
@@ -524,6 +551,11 @@ function sepgp:OnEnable() -- PLAYER_LOGIN (2)
     end
   end
 
+  self:RegisterEvent("CHAT_MSG_CHANNEL", function(message, _, _, _, _, _, _, _, channelName)
+    if string.find(channelName, "RetPugs") then
+      sepgp:parsePugEpUpdate(message, channelName)
+    end
+  end)
   self:RegisterEvent("GUILD_ROSTER_UPDATE",function() 
       if (arg1) then -- member join /leave
         sepgp:SetRefresh(true)
@@ -724,6 +756,19 @@ function sepgp:delayedInit()
   -- init options and comms
   self._options = self:buildMenu()
   self:RegisterChatCommand({"/shooty","/sepgp","/shootyepgp","/ret"},self.cmdtable())
+  local function calculateBonus(input)
+    local number = tonumber(input)
+    if number and number >= 2 and number <= 10 then
+        return number * 20
+    end
+    return 20  -- Return 20 for first week if input is invalid
+  end
+  
+  self:RegisterChatCommand({"/retcsr"}, function(input)
+    local bonus = calculateBonus(input)
+    self:RollCommand(true, false, bonus)
+  end)
+  self:RegisterChatCommand({"/updatepugep"}, function() sepgp:updateAllPugEP() end)
   self:RegisterEvent("CHAT_MSG_ADDON","addonComms")  
   -- broadcast our version
   local addonMsg = string.format("VERSION;%s;%d",sepgp._versionString,major_ver)
@@ -738,6 +783,7 @@ function sepgp:delayedInit()
     end
   end
   self:defaultPrint(string.format(L["v%s Loaded."],sepgp._versionString))
+  JoinChannelByName("RetPugs")
 end
 
 function sepgp:AddDataToTooltip(tooltip,itemlink,itemstring,is_master)
@@ -1347,8 +1393,15 @@ end
 
 function sepgp:givename_ep(getname,ep) -- awards ep to a single character
   if not (admin()) then return end
+  local isPug, playerNameInGuild = self:isPug(getname)
   local postfix, alt = ""
-  if (sepgp_altspool) then
+  if isPug then
+    -- Update EP for the level 1 character in the guild
+    alt = getname
+    getname = playerNameInGuild
+    ep = self:num_round(sepgp_altpercent*ep)
+    postfix = string.format(", %s\'s Pug EP Bank.",alt)
+  elseif (sepgp_altspool) then
     local main = self:parseAlt(getname)
     if (main) then
       alt = getname
@@ -2481,12 +2534,15 @@ function sepgp:EasyMenu(menuList, menuFrame, anchor, x, y, displayMode, level)
   UIDropDownMenu_Initialize(menuFrame, function() sepgp:EasyMenu_Initialize(level, menuList) end, displayMode, level)
   ToggleDropDownMenu(1, nil, menuFrame, anchor, x, y)
 end
-function sepgp:RollCommand(isSRRoll,isDSRRoll)
+function sepgp:RollCommand(isSRRoll,isDSRRoll,bonus)
   local playerName = UnitName("player")
   local ep
   
+  if sepgp_pugEP['Ret'] and sepgp_pugEP['Ret'][playerName] then
+    -- Player is a Pug, use stored EP
+    ep = sepgp_pugEP['Ret'][playerName] or 0
   -- Check if the player is an alt
-  if sepgp_altspool then
+  elseif sepgp_altspool then
     local main = self:parseAlt(playerName)
     if main then
       -- If the player is an alt, use the main's EP
@@ -2514,8 +2570,110 @@ function sepgp:RollCommand(isSRRoll,isDSRRoll)
     maxRoll = 100 + ep
   end
   
-  -- Perform the roll
   RandomRoll(minRoll, maxRoll)
+  
+  -- Prepare the announcement message
+  local bonusText = ""
+  local message = string.format("I rolled %d - %d with %d EP%s", minRoll, maxRoll, ep, bonusText)
+
+  if(isSRRoll) then
+    message = string.format("I rolled SR %d - %d with %d EP%s", minRoll, maxRoll, ep, bonusText)
+  end
+  if(isDSRRoll) then
+    message = string.format("I rolled Double SR %d - %d with %d EP%s", minRoll, maxRoll, ep, bonusText)
+  end
+
+  if bonus > 0 then
+    local weeks = math.floor(bonus / 20)
+    bonusText = string.format(" +%d for %d weeks", bonus, weeks)
+    minRoll = minRoll + bonus
+    maxRoll = maxRoll + bonus
+    message = string.format("I rolled Cumulative SR %d - %d with %d EP%s", minRoll, maxRoll, ep, bonusText)
+  end
+  -- Determine the chat channel
+  local chatType = UnitInRaid("player") and "RAID" or "SAY"
+  
+  -- Send the message
+  SendChatMessage(message, chatType)
 end
+function sepgp:isPug(name)
+  for i = 1, GetNumGuildMembers(1) do
+    local guildMemberName, _, _, _, _, _, _, officerNote = GetGuildRosterInfo(i)
+    if officerNote and officerNote ~= '' then
+      local _,_,pugName = string.find(officerNote, "{pug:([^}]+)}")
+        if pugName == name then
+          return true, guildMemberName
+        end
+    end
+  end
+  return false
+end
+function sepgp:sendPugEpUpdate(pugName, ep)
+  SendChatMessage(string.format("Pug %s has %d EP", pugName, ep), "CHANNEL", nil, GetChannelName("RetPugs"))
+end
+function sepgp:parsePugEpUpdate(message, channelName)
+  local _, _, pugName, ep = string.find(message, "Pug (%S+) has (%d+) EP")
+  local playerName = UnitName("player")
+  if pugName == playerName then
+    if pugName and ep then
+      local _, _, guildName = string.find(channelName, "^(.+)Pugs$")
+      if guildName then
+        if not sepgp_pugEP[guildName] then
+          sepgp_pugEP[guildName] = {}
+        end
+        sepgp_pugEP[guildName][pugName] = tonumber(ep)
+    
+        self:defaultPrint(string.format("Updated EP for %s in guild %s: %d", pugName, guildName, tonumber(ep)))
+        end
+      else
+        self:defaultPrint("Could not parse guild name from channel: " .. channelName)
+      end
+  end
+end
+function sepgp:CheckPugEP()
+  local playerName = UnitName("player")
+  local foundEP = false
+  
+  for guildName, guildData in pairs(sepgp_pugEP) do
+    if guildData[playerName] then
+      self:defaultPrint(string.format("Your EP for %s: %d", guildName, guildData[playerName]))
+      foundEP = true
+    end
+  end
+  
+  if not foundEP then
+    self:defaultPrint("No EP found for " .. playerName .. " in any guild")
+  end
+end
+function sepgp:getAllPugs()
+  local pugs = {}
+  for i = 1, GetNumGuildMembers(1) do
+    local guildMemberName, _, _, guildMemberLevel, _, _, _, officerNote = GetGuildRosterInfo(i)
+    if officerNote and officerNote ~= '' then
+      local _, _, pugName = string.find(officerNote, "{pug:([^}]+)}")
+      if pugName then
+        pugs[guildMemberName] = pugName
+      end
+    end
+  end
+  return pugs
+end
+function sepgp:updateAllPugEP()
+  if not admin() then
+    self:defaultPrint("You don't have permission to perform this action.")
+    return
+  end
+  local pugs = self:getAllPugs()
+  local count = 0
+
+  for guildMemberName, pugName in pairs(pugs) do
+    local ep = self:get_ep_v3(guildMemberName) or 0
+    self:sendPugEpUpdate(pugName, ep)
+    count = count + 1
+  end
+
+  self:defaultPrint(string.format("Updated EP for %d Pug player(s)", count))
+end
+
 -- GLOBALS: sepgp_saychannel,sepgp_groupbyclass,sepgp_groupbyarmor,sepgp_groupbyrole,sepgp_raidonly,sepgp_decay,sepgp_minep,sepgp_reservechannel,sepgp_main,sepgp_progress,sepgp_discount,sepgp_altspool,sepgp_altpercent,sepgp_log,sepgp_dbver,sepgp_looted,sepgp_debug,sepgp_fubar
--- GLOBALS: sepgp,sepgp_prices,sepgp_standings,sepgp_bids,sepgp_loot,sepgp_reserves,sepgp_alts,sepgp_logs
+-- GLOBALS: sepgp,sepgp_prices,sepgp_standings,sepgp_bids,sepgp_loot,sepgp_reserves,sepgp_alts,sepgp_logs,sepgp_pugEP

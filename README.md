@@ -1,3 +1,14 @@
+# Modified for RET, Twow guild in Tel'abim
+## Roll commands for RET
+- /ret roll (mainspec roll)
+- /ret sr (soft-reserve roll)
+- /ret dsr (double soft-reserve roll)
+- /retcsr (cumulative soft-reserve roll)
+- /ret ep (check your EP if you are a PUG)
+
+With the cumulative roll, you can provide it the number of weeks you have SR'ed an item
+ie "/retcsr 3" will roll with +60 for 3 weeks of SR
+ 
 # shootyepgp
 Guild Helper addon for EPGP loot system in WoW (1.12)
 
