@@ -2569,7 +2569,9 @@ function sepgp:RollCommand(isSRRoll,isDSRRoll,bonus)
     minRoll = 1 + ep
     maxRoll = 100 + ep
   end
-  
+  minRoll = minRoll + bonus
+  maxRoll = maxRoll + bonus
+
   RandomRoll(minRoll, maxRoll)
   
   -- Prepare the announcement message
@@ -2586,8 +2588,6 @@ function sepgp:RollCommand(isSRRoll,isDSRRoll,bonus)
   if bonus > 0 then
     local weeks = math.floor(bonus / 20)
     bonusText = string.format(" +%d for %d weeks", bonus, weeks)
-    minRoll = minRoll + bonus
-    maxRoll = maxRoll + bonus
     message = string.format("I rolled Cumulative SR %d - %d with %d EP%s", minRoll, maxRoll, ep, bonusText)
   end
   -- Determine the chat channel
