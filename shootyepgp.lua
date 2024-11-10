@@ -758,7 +758,7 @@ function sepgp:delayedInit()
   self:RegisterChatCommand({"/shooty","/sepgp","/shootyepgp","/ret"},self.cmdtable())
   local function calculateBonus(input)
     local number = tonumber(input)
-    if number and number >= 2 and number <= 10 then
+    if number and number >= 2 and number <= 15 then
         return number * 20
     end
     return 20  -- Return 20 for first week if input is invalid
@@ -2674,6 +2674,15 @@ function sepgp:updateAllPugEP()
 
   self:defaultPrint(string.format("Updated EP for %d Pug player(s)", count))
 end
-
+function sepgp:getPugName(name)
+  for i = 1, GetNumGuildMembers(1) do
+      local guildMemberName, _, _, _, _, _, _, officerNote = GetGuildRosterInfo(i)
+      if guildMemberName == name then
+          local _, _, pugName = string.find(officerNote or "", "{pug:([^}]+)}")
+          return pugName
+      end
+  end
+  return nil
+end
 -- GLOBALS: sepgp_saychannel,sepgp_groupbyclass,sepgp_groupbyarmor,sepgp_groupbyrole,sepgp_raidonly,sepgp_decay,sepgp_minep,sepgp_reservechannel,sepgp_main,sepgp_progress,sepgp_discount,sepgp_altspool,sepgp_altpercent,sepgp_log,sepgp_dbver,sepgp_looted,sepgp_debug,sepgp_fubar
 -- GLOBALS: sepgp,sepgp_prices,sepgp_standings,sepgp_bids,sepgp_loot,sepgp_reserves,sepgp_alts,sepgp_logs,sepgp_pugEP
