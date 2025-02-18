@@ -509,6 +509,24 @@ function sepgp:buildMenu()
      hidden = function() return not (IsGuildLeader()) end,
      func = function() StaticPopup_Show("SHOOTY_EPGP_CONFIRM_RESET") end
     }
+    options.args["show_roll_window"] = {
+      type = "toggle",
+      name = "Show Roll Window",
+      desc = "Toggle the visibility of the roll window",
+      order = 120,
+      get = function() return sepgp_showRollWindow end,
+      set = function(v) 
+          sepgp_showRollWindow = not sepgp_showRollWindow
+          -- Update roll window visibility
+          if ShootyRollFrame then
+              if sepgp_showRollWindow then
+                  ShootyRollFrame:Show()
+              else
+                  ShootyRollFrame:Hide()
+              end
+          end
+      end,
+  }
   end
   if (needInit) or (needRefresh) then
     local members = sepgp:buildRosterTable()
@@ -533,6 +551,7 @@ function sepgp:OnInitialize() -- ADDON_LOADED (1) unless LoD
   if sepgp_looted == nil then sepgp_looted = {} end
   if sepgp_debug == nil then sepgp_debug = {} end
   if sepgp_pugEP == nil then sepgp_pugEP = {} end
+  if sepgp_showRollWindow == nil then sepgp_showRollWindow = true end
   self:RegisterDB("sepgp_fubar")
   self:RegisterDefaults("char",{})
   --table.insert(sepgp_debug,{[date("%b/%d %H:%M:%S")]="OnInitialize"})
@@ -756,7 +775,7 @@ function sepgp:delayedInit()
   -- init options and comms
   self._options = self:buildMenu()
   self:RegisterChatCommand({"/shooty","/sepgp","/shootyepgp","/ret"},self.cmdtable())
-  local function calculateBonus(input)
+  function calculateBonus(input)
     local number = tonumber(input)
     if number and number >= 2 and number <= 15 then
         return number * 20
