@@ -1,5 +1,6 @@
 -- Ensure ShootyEPGP_RollPos is initialized with default values
 ShootyEPGP_RollPos = ShootyEPGP_RollPos or { x = 400, y = 300 }
+sepgp_showRollWindow = true
 
 -- Function to execute commands
 local function ExecuteCommand(command)
