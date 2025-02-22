@@ -18,15 +18,63 @@ local function ExecuteCommand(command)
         if sepgp and sepgp.RollCommand then
             sepgp:RollCommand(true, false, 0)
         end
+    elseif command == "retcsr" then
+        -- Use static popup dialog to input bonus
+        StaticPopupDialogs["RET_CSR_INPUT"] = {
+            text = "Enter number of weeks you SR this item:",
+            button1 = TEXT(ACCEPT),
+            button2 = TEXT(CANCEL),
+            hasEditBox = 1,
+            maxLetters = 5,
+            OnAccept = function()
+                local editBox = getglobal(this:GetParent():GetName().."EditBox")
+                local number = tonumber(editBox:GetText())
+                if number then
+                    local bonus = calculateBonus(number)
+                    sepgp:RollCommand(true, false, bonus)
+                else
+                    print("Invalid number entered.")
+                end
+            end,
+            OnShow = function()
+                local editBox = getglobal(this:GetParent():GetName().."EditBox")
+                getglobal(this:GetName().."EditBox"):SetText("")
+                getglobal(this:GetName().."EditBox"):SetFocus()
+            end,
+            OnHide = function()
+                if ChatFrameEditBox:IsVisible() then
+                    ChatFrameEditBox:SetFocus()
+                end
+            end,
+            EditBoxOnEnterPressed = function()
+                local editBox = getglobal(this:GetParent():GetName().."EditBox")
+                local number = tonumber(editBox:GetText())
+                if number then
+                    local bonus = calculateBonus(number)
+                    sepgp:RollCommand(true, false, bonus)
+                else
+                    print("Invalid number entered.")
+                end
+                this:GetParent():Hide()
+            end,
+            EditBoxOnEscapePressed = function()
+                this:GetParent():Hide()
+            end,
+            timeout = 0,
+            exclusive = 1,
+            whileDead = 1,
+            hideOnEscape = 1,
+        }
+        StaticPopup_Show("RET_CSR_INPUT")
     elseif command == "shooty show" then
         sepgp_standings:Toggle()
     end
 end
 
--- Create a frame for the Roll and Standings buttons
+-- Create a frame for the Roll button
 local rollFrame = CreateFrame("Frame", "ShootyRollFrame", UIParent)
-rollFrame:SetWidth(80)
-rollFrame:SetHeight(70)
+rollFrame:SetWidth(50)
+rollFrame:SetHeight(50)
 rollFrame:SetPoint("CENTER", UIParent, "BOTTOMLEFT", ShootyEPGP_RollPos.x, ShootyEPGP_RollPos.y)
 if not sepgp_showRollWindow then
     rollFrame:Hide()
@@ -43,22 +91,12 @@ rollFrame:SetBackdrop({
     insets = { left = 8, right = 8, top = 8, bottom = 8 }
 })
 
--- Create the Standings button inside the frame
-local standingsButton = CreateFrame("Button", "ShootyStandingsButton", rollFrame, "UIPanelButtonTemplate")
-standingsButton:SetWidth(60)
-standingsButton:SetHeight(25)
-standingsButton:SetText("Standings")
-standingsButton:SetPoint("TOP", rollFrame, "TOP", 0, -5)
-standingsButton:SetScript("OnClick", function()
-    ExecuteCommand("shooty show")
-end)
-
 -- Create the Roll button inside the frame
 local rollButton = CreateFrame("Button", "ShootyRollButton", rollFrame, "UIPanelButtonTemplate")
-rollButton:SetWidth(60)
-rollButton:SetHeight(25)
+rollButton:SetWidth(30)
+rollButton:SetHeight(30)
 rollButton:SetText("Roll")
-rollButton:SetPoint("TOP", standingsButton, "BOTTOM", 0, -5)
+rollButton:SetPoint("CENTER", rollFrame, "CENTER")
 
 -- Container for roll buttons, initially hidden
 local rollOptionsFrame = CreateFrame("Frame", "RollOptionsFrame", rollFrame)
@@ -76,7 +114,10 @@ local function CreateRollButton(name, parent, command, anchor)
     button:SetPoint("TOP", anchor, "BOTTOM", 0, -2)
     button:SetScript("OnClick", function()
         ExecuteCommand(command)
-        rollOptionsFrame:Hide()
+        -- Only hide the dropdown for specific commands
+        if command == "shooty show" or command == "retcsr" then
+            rollOptionsFrame:Hide()
+        end
     end)
     return button
 end
@@ -87,7 +128,9 @@ local options = {
     { "OS", "roll 99" },
     { "Tmog", "roll 50" },
     { "Ret roll", "ret roll" },
-    { "Ret sr", "ret sr" }
+    { "Ret sr", "ret sr" },
+    { "Ret CSR", "retcsr" },
+    { "Standings", "shooty show" }
 }
 
 -- Create roll buttons dynamically
