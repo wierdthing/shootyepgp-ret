@@ -8,6 +8,8 @@ local function ExecuteCommand(command)
         RandomRoll(1, 100)
     elseif command == "roll 99" then
         RandomRoll(1, 99)
+	elseif command == "roll 101" then
+        RandomRoll(1, 101)
     elseif command == "roll 50" then
         RandomRoll(1, 50)
     elseif command == "ret roll" then
@@ -114,10 +116,7 @@ local function CreateRollButton(name, parent, command, anchor)
     button:SetPoint("TOP", anchor, "BOTTOM", 0, -2)
     button:SetScript("OnClick", function()
         ExecuteCommand(command)
-        -- Only hide the dropdown for specific commands
-        if command == "shooty show" or command == "retcsr" then
-            rollOptionsFrame:Hide()
-        end
+        rollOptionsFrame:Hide()
     end)
     return button
 end
@@ -126,6 +125,7 @@ end
 local options = {
     { "MS", "roll" },
     { "OS", "roll 99" },
+    { "SR", "roll 101" },
     { "Tmog", "roll 50" },
     { "Ret roll", "ret roll" },
     { "Ret sr", "ret sr" },
