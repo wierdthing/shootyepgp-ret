@@ -75,8 +75,8 @@ end
 
 -- Create a frame for the Roll button
 local rollFrame = CreateFrame("Frame", "ShootyRollFrame", UIParent)
-rollFrame:SetWidth(50)
-rollFrame:SetHeight(50)
+rollFrame:SetWidth(80)
+rollFrame:SetHeight(40)
 rollFrame:SetPoint("CENTER", UIParent, "BOTTOMLEFT", ShootyEPGP_RollPos.x, ShootyEPGP_RollPos.y)
 if not sepgp_showRollWindow then
     rollFrame:Hide()
@@ -95,7 +95,7 @@ rollFrame:SetBackdrop({
 
 -- Create the Roll button inside the frame
 local rollButton = CreateFrame("Button", "ShootyRollButton", rollFrame, "UIPanelButtonTemplate")
-rollButton:SetWidth(30)
+rollButton:SetWidth(70)
 rollButton:SetHeight(30)
 rollButton:SetText("Roll")
 rollButton:SetPoint("CENTER", rollFrame, "CENTER")
@@ -103,22 +103,39 @@ rollButton:SetPoint("CENTER", rollFrame, "CENTER")
 -- Container for roll buttons, initially hidden
 local rollOptionsFrame = CreateFrame("Frame", "RollOptionsFrame", rollFrame)
 rollOptionsFrame:SetPoint("TOP", rollButton, "BOTTOM", 0, -2)
-rollOptionsFrame:SetWidth(60)
-rollOptionsFrame:SetHeight(25)
+rollOptionsFrame:SetWidth(70)
+rollOptionsFrame:SetHeight(30)
 rollOptionsFrame:Hide()
 
 -- Function to create roll option buttons
 local function CreateRollButton(name, parent, command, anchor)
-    local button = CreateFrame("Button", nil, parent, "UIPanelButtonTemplate")
+    local buttonFrame = CreateFrame("Frame", nil, parent)
+    buttonFrame:SetWidth(70)
+    buttonFrame:SetHeight(30)
+    buttonFrame:SetPoint("TOP", anchor, "BOTTOM", 0, -2)
+
+    buttonFrame:SetBackdrop({
+        bgFile = "Interface\\DialogFrame\\UI-DialogBox-Background",
+        edgeFile = "Interface\\DialogFrame\\UI-DialogBox-Border",
+        tile = true, tileSize = 32, edgeSize = 16,
+        insets = { left = 5, right = 5, top = 5, bottom = 5 }
+    })
+
+    local button = CreateFrame("Button", nil, buttonFrame, "UIPanelButtonTemplate")
     button:SetWidth(60)
     button:SetHeight(20)
     button:SetText(name)
-    button:SetPoint("TOP", anchor, "BOTTOM", 0, -2)
+    button:SetPoint("CENTER", buttonFrame, "CENTER")
+
     button:SetScript("OnClick", function()
         ExecuteCommand(command)
-        rollOptionsFrame:Hide()
+        -- Only hide if the command isn't "shooty show"
+        if command ~= "shooty show" then
+            rollOptionsFrame:Hide()
+        end
     end)
-    return button
+
+    return buttonFrame
 end
 
 -- Roll option buttons configuration
@@ -133,10 +150,20 @@ local options = {
     { "Standings", "shooty show" }
 }
 
--- Create roll buttons dynamically
+-- Create roll buttons dynamically with closer spacing
 local previousButton = rollOptionsFrame
 for _, option in ipairs(options) do
-    previousButton = CreateRollButton(option[1], rollOptionsFrame, option[2], previousButton)
+    local buttonFrame = CreateRollButton(option[1], rollOptionsFrame, option[2], previousButton)
+
+    if previousButton == rollOptionsFrame then
+        -- For the first button, set it relative to the rollOptionsFrame
+        buttonFrame:SetPoint("TOP", rollOptionsFrame, "TOP", 0, 0)  -- Align with the top of the options frame
+    else
+        -- For subsequent buttons, set their position based on the previous button
+        buttonFrame:SetPoint("TOP", previousButton, "BOTTOM", 0, 5)  -- Close spacing
+    end
+
+    previousButton = buttonFrame  -- Update previousButton to the current buttonFrame for the next iteration
 end
 
 -- Toggle roll buttons on Roll button click
