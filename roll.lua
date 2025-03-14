@@ -1,189 +1,126 @@
--- Ensure ShootyEPGP_RollPos is initialized with default values
-ShootyEPGP_RollPos = ShootyEPGP_RollPos or { x = 400, y = 300 }
-sepgp_showRollWindow = true
+local T = AceLibrary("Tablet-2.0")
+local D = AceLibrary("Dewdrop-2.0")
+local C = AceLibrary("Crayon-2.0")
 
--- Function to execute commands
-local function ExecuteCommand(command)
-    if command == "roll" then
-        RandomRoll(1, 100)
-    elseif command == "roll 99" then
-        RandomRoll(1, 99)
-	elseif command == "roll 101" then
-        RandomRoll(1, 101)
-    elseif command == "roll 50" then
-        RandomRoll(1, 50)
-    elseif command == "ret roll" then
-        if sepgp and sepgp.RollCommand then
-            sepgp:RollCommand(false, false, 0)
-        end
-    elseif command == "ret sr" then
-        if sepgp and sepgp.RollCommand then
-            sepgp:RollCommand(true, false, 0)
-        end
-    elseif command == "retcsr" then
-        -- Use static popup dialog to input bonus
-        StaticPopupDialogs["RET_CSR_INPUT"] = {
-            text = "Enter number of weeks you SR this item:",
-            button1 = TEXT(ACCEPT),
-            button2 = TEXT(CANCEL),
-            hasEditBox = 1,
-            maxLetters = 5,
-            OnAccept = function()
-                local editBox = getglobal(this:GetParent():GetName().."EditBox")
-                local number = tonumber(editBox:GetText())
-                if number then
-                    local bonus = calculateBonus(number)
-                    sepgp:RollCommand(true, false, bonus)
-                else
-                    print("Invalid number entered.")
-                end
-            end,
-            OnShow = function()
-                local editBox = getglobal(this:GetParent():GetName().."EditBox")
-                getglobal(this:GetName().."EditBox"):SetText("")
-                getglobal(this:GetName().."EditBox"):SetFocus()
-            end,
-            OnHide = function()
-                if ChatFrameEditBox:IsVisible() then
-                    ChatFrameEditBox:SetFocus()
-                end
-            end,
-            EditBoxOnEnterPressed = function()
-                local editBox = getglobal(this:GetParent():GetName().."EditBox")
-                local number = tonumber(editBox:GetText())
-                if number then
-                    local bonus = calculateBonus(number)
-                    sepgp:RollCommand(true, false, bonus)
-                else
-                    print("Invalid number entered.")
-                end
-                this:GetParent():Hide()
-            end,
-            EditBoxOnEscapePressed = function()
-                this:GetParent():Hide()
-            end,
-            timeout = 0,
-            exclusive = 1,
-            whileDead = 1,
-            hideOnEscape = 1,
-        }
-        StaticPopup_Show("RET_CSR_INPUT")
-    elseif command == "shooty show" then
-        sepgp_standings:Toggle()
+local BC = AceLibrary("Babble-Class-2.2")
+local L = AceLibrary("AceLocale-2.2"):new("shootyepgp")
+
+sepgp_loot = sepgp:NewModule("sepgp_loot", "AceDB-2.0")
+
+function sepgp_loot:OnEnable()
+  if not T:IsRegistered("sepgp_loot") then
+    T:Register("sepgp_loot",
+      "children", function()
+        T:SetTitle(L["shootyepgp loot info"])
+        self:OnTooltipUpdate()
+      end,
+      "showTitleWhenDetached", true,
+      "showHintWhenDetached", true,
+      "cantAttach", true,
+      "menu", function()
+        D:AddLine(
+          "text", L["Refresh"],
+          "tooltipText", L["Refresh window"],
+          "func", function() sepgp_loot:Refresh() end
+        )
+        D:AddLine(
+          "text", L["Clear"],
+          "tooltipText", L["Clear Loot."],
+          "func", function() sepgp_looted = {} sepgp_loot:Refresh() end
+        )        
+      end      
+    )
+  end
+  if not T:IsAttached("sepgp_loot") then
+    T:Open("sepgp_loot")
+  end
+end
+
+function sepgp_loot:OnDisable()
+  T:Close("sepgp_loot")
+end
+
+function sepgp_loot:Refresh()
+  T:Refresh("sepgp_loot")
+end
+
+function sepgp_loot:setHideScript()
+  local i = 1
+  local tablet = getglobal(string.format("Tablet20DetachedFrame%d",i))
+  while (tablet) and i<100 do
+    if tablet.owner ~= nil and tablet.owner == "sepgp_loot" then
+      sepgp:make_escable(string.format("Tablet20DetachedFrame%d",i),"add")
+      tablet:SetScript("OnHide",nil)
+      tablet:SetScript("OnHide",function()
+          if not T:IsAttached("sepgp_loot") then
+            T:Attach("sepgp_loot")
+            this:SetScript("OnHide",nil)
+          end
+        end)
+      break
+    end    
+    i = i+1
+    tablet = getglobal(string.format("Tablet20DetachedFrame%d",i))
+  end  
+end
+
+function sepgp_loot:Top()
+  if T:IsRegistered("sepgp_loot") and (T.registry.sepgp_loot.tooltip) then
+    T.registry.sepgp_loot.tooltip.scroll=0
+  end  
+end
+
+function sepgp_loot:Toggle(forceShow)
+  self:Top()
+  if T:IsAttached("sepgp_loot") then
+    T:Detach("sepgp_loot") -- show
+    if (T:IsLocked("sepgp_loot")) then
+      T:ToggleLocked("sepgp_loot")
     end
-end
-
--- Create a frame for the Roll button
-local rollFrame = CreateFrame("Frame", "ShootyRollFrame", UIParent)
-rollFrame:SetWidth(50)
-rollFrame:SetHeight(50)
-rollFrame:SetPoint("CENTER", UIParent, "BOTTOMLEFT", ShootyEPGP_RollPos.x, ShootyEPGP_RollPos.y)
-if not sepgp_showRollWindow then
-    rollFrame:Hide()
-end
-rollFrame:SetMovable(true)
-rollFrame:EnableMouse(true)
-rollFrame:RegisterForDrag("LeftButton")
-
--- Add a border to the frame so it's visible
-rollFrame:SetBackdrop({
-    bgFile = "Interface\\DialogFrame\\UI-DialogBox-Background",
-    edgeFile = "Interface\\DialogFrame\\UI-DialogBox-Border",
-    tile = true, tileSize = 32, edgeSize = 16,
-    insets = { left = 8, right = 8, top = 8, bottom = 8 }
-})
-
--- Create the Roll button inside the frame
-local rollButton = CreateFrame("Button", "ShootyRollButton", rollFrame, "UIPanelButtonTemplate")
-rollButton:SetWidth(30)
-rollButton:SetHeight(30)
-rollButton:SetText("Roll")
-rollButton:SetPoint("CENTER", rollFrame, "CENTER")
-
--- Container for roll buttons, initially hidden
-local rollOptionsFrame = CreateFrame("Frame", "RollOptionsFrame", rollFrame)
-rollOptionsFrame:SetPoint("TOP", rollButton, "BOTTOM", 0, -2)
-rollOptionsFrame:SetWidth(60)
-rollOptionsFrame:SetHeight(25)
-rollOptionsFrame:Hide()
-
--- Function to create roll option buttons
-local function CreateRollButton(name, parent, command, anchor)
-    local button = CreateFrame("Button", nil, parent, "UIPanelButtonTemplate")
-    button:SetWidth(60)
-    button:SetHeight(20)
-    button:SetText(name)
-    button:SetPoint("TOP", anchor, "BOTTOM", 0, -2)
-    button:SetScript("OnClick", function()
-        ExecuteCommand(command)
-        rollOptionsFrame:Hide()
-    end)
-    return button
-end
-
--- Roll option buttons configuration
-local options = {
-    { "MS", "roll" },
-    { "OS", "roll 99" },
-    { "SR", "roll 101" },
-    { "Tmog", "roll 50" },
-    { "Ret roll", "ret roll" },
-    { "Ret sr", "ret sr" },
-    { "Ret CSR", "retcsr" },
-    { "Standings", "shooty show" }
-}
-
--- Create roll buttons dynamically
-local previousButton = rollOptionsFrame
-for _, option in ipairs(options) do
-    previousButton = CreateRollButton(option[1], rollOptionsFrame, option[2], previousButton)
-end
-
--- Toggle roll buttons on Roll button click
-rollButton:SetScript("OnClick", function()
-    if rollOptionsFrame:IsShown() then
-        rollOptionsFrame:Hide()
+    self:setHideScript()
+  else
+    if (forceShow) then
+      sepgp_loot:Refresh()
     else
-        rollOptionsFrame:Show()
+      T:Attach("sepgp_loot") -- hide
     end
-end)
+  end  
+end
 
--- Fix for dragging functionality for the frame
-rollFrame:SetScript("OnMouseDown", function(_, arg1)
-    if arg1 == "LeftButton" then
-        rollFrame:StartMoving()
-    end
-end)
+function sepgp_loot:BuildLootTable()
+  table.sort(sepgp_looted, function(a,b)
+    if (a[1] ~= b[1]) then return a[1] > b[1]
+    else return a[2] > b[2] end
+  end)
+  return sepgp_looted
+end
 
-rollFrame:SetScript("OnMouseUp", function(_, arg1)
-    if arg1 == "LeftButton" then
-        rollFrame:StopMovingOrSizing()
-        ShootyEPGP_RollPos.x = rollFrame:GetLeft()
-        ShootyEPGP_RollPos.y = rollFrame:GetTop()
-    end
-end)
+function sepgp_loot:OnClickItem(data)
 
-rollFrame:SetScript("OnDragStart", function()
-    rollFrame:StartMoving()
-end)
+end
 
-rollFrame:SetScript("OnDragStop", function()
-    rollFrame:StopMovingOrSizing()
-    ShootyEPGP_RollPos.x = rollFrame:GetLeft()
-    ShootyEPGP_RollPos.y = rollFrame:GetTop()
-end)
+function sepgp_loot:OnTooltipUpdate()
+  local cat = T:AddCategory(
+      "columns", 5,
+      "text",  C:Orange(L["Time"]),   "child_textR",    1, "child_textG",    1, "child_textB",    1, "child_justify",  "LEFT",
+      "text2", C:Orange(L["Item"]),     "child_text2R",   1, "child_text2G",   1, "child_text2B",   0, "child_justify2", "LEFT",
+      "text3", C:Orange(L["Binds"]),  "child_text3R",   0, "child_text3G",   1, "child_text3B",   0, "child_justify3", "CENTER",
+      "text4", C:Orange(L["Looter"]),  "child_text4R",   0, "child_text4G",   1, "child_text4B",   0, "child_justify4", "RIGHT",
+      "text5", C:Orange(L["GP Action"]),  "child_text5R",   0, "child_text5G",   1, "child_text5B",   0, "child_justify5", "RIGHT"         
+    )
+  local t = self:BuildLootTable()
+  for i = 1, table.getn(t) do
+    local timestamp,player,player_color,itemLink,bind,price,off_price,action = unpack(t[i])
+    cat:AddLine(
+      "text", timestamp,
+      "text2", itemLink,
+      "text3", bind,
+      "text4", player_color,
+      "text5", action--,
+--      "func", "OnClickItem", "arg1", self, "arg2", t[i]
+    )
+  end
+end
 
--- Restore saved position on load
-local eventFrame = CreateFrame("Frame")
-eventFrame:RegisterEvent("PLAYER_LOGIN")
-eventFrame:SetScript("OnEvent", function()
-    if ShootyEPGP_RollPos.x and ShootyEPGP_RollPos.y then
-        rollFrame:SetPoint("CENTER", UIParent, "BOTTOMLEFT", ShootyEPGP_RollPos.x, ShootyEPGP_RollPos.y)
-    else
-        ShootyEPGP_RollPos = { x = 400, y = 300 }
-        rollFrame:SetPoint("CENTER", UIParent, "BOTTOMLEFT", ShootyEPGP_RollPos.x, ShootyEPGP_RollPos.y)
-    end
-    if not sepgp_showRollWindow then
-        rollFrame:Hide()
-    end
-end)
+-- GLOBALS: sepgp_saychannel,sepgp_groupbyclass,sepgp_groupbyarmor,sepgp_groupbyrole,sepgp_raidonly,sepgp_decay,sepgp_minep,sepgp_reservechannel,sepgp_main,sepgp_progress,sepgp_discount,sepgp_log,sepgp_dbver,sepgp_looted
+-- GLOBALS: sepgp,sepgp_prices,sepgp_standings,sepgp_bids,sepgp_loot,sepgp_reserves,sepgp_alts,sepgp_logs
