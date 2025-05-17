@@ -3153,16 +3153,57 @@ function sepgp:updateAllPugEP()
         self:defaultPrint("You don't have permission to perform this action.")
         return
     end
+    
     local pugs = self:getAllPugs()
     local count = 0
-
+    local pugChannel = GetChannelName("RetPugs")
+    
+    -- Clear any existing queued messages
+    if not self.DelayMsg then
+        self.DelayMsg = {}
+    else
+        while table.getn(self.DelayMsg) > 0 do
+            table.remove(self.DelayMsg)
+        end
+    end
+    
+    -- Queue all messages
     for guildMemberName, pugName in pairs(pugs) do
         local ep = self:get_ep_v3(guildMemberName) or 0
-        self:sendPugEpUpdate(pugName, ep)
+        local message = string.format("Pug %s has %d EP", pugName, ep)
+        
+        -- Add to our delay queue [message, chattype, channelindex]
+        table.insert(self.DelayMsg, {message, "CHANNEL", pugChannel})
         count = count + 1
     end
+    
+    -- Start the sending process if not already running
+    if not self:IsEventScheduled("sepgp_SendDelayedMessages") then
+        self:ScheduleRepeatingEvent("sepgp_SendDelayedMessages", self.ProcessDelayedMessages, 0.5, self)
+    end
+    
+    self:defaultPrint(string.format("Queued EP updates for %d Pug player(s) (sending one message every 0.5 seconds)", count))
+end
 
-    self:defaultPrint(string.format("Updated EP for %d Pug player(s)", count))
+function sepgp:ProcessDelayedMessages()
+    if table.getn(self.DelayMsg) == 0 then
+        -- No more messages to send, cancel the repeating event
+        self:CancelScheduledEvent("sepgp_SendDelayedMessages")
+        return
+    end
+    
+    -- Get the next message
+    local nextMsg = table.remove(self.DelayMsg, 1)
+    local message, chatType, channel = unpack(nextMsg)
+    
+    -- Send it using ChatThrottleLib
+    ChatThrottleLib:SendChatMessage("BULK", "SHOOTY_EPGP", message, chatType, nil, channel)
+    
+    -- Display progress (optional)
+    local remaining = table.getn(self.DelayMsg)
+    if math.mod(remaining, 5) == 0 and remaining > 0 then
+        self:defaultPrint(string.format("%d messages remaining in queue...", remaining))
+    end
 end
 function sepgp:getPugName(name)
     for i = 1, GetNumGuildMembers(1) do
