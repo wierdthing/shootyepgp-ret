@@ -3157,6 +3157,20 @@ function sepgp:updateAllPugEP()
     local pugs = self:getAllPugs()
     local count = 0
     local pugChannel = GetChannelName("RetPugs")
+    local raidPugs = {}
+    
+    -- Get all players in raid
+    if GetNumRaidMembers() > 0 then
+        for i = 1, GetNumRaidMembers() do
+            local name = UnitName("raid" .. i)
+            if name then
+                raidPugs[name] = true
+            end
+        end
+    else
+        self:defaultPrint("You are not in a raid. No pugs to update.")
+        return
+    end
     
     -- Clear any existing queued messages
     if not self.DelayMsg then
@@ -3167,14 +3181,21 @@ function sepgp:updateAllPugEP()
         end
     end
     
-    -- Queue all messages
+    -- Queue messages only for pugs in the raid
     for guildMemberName, pugName in pairs(pugs) do
-        local ep = self:get_ep_v3(guildMemberName) or 0
-        local message = string.format("Pug %s has %d EP", pugName, ep)
-        
-        -- Add to our delay queue [message, chattype, channelindex]
-        table.insert(self.DelayMsg, {message, "CHANNEL", pugChannel})
-        count = count + 1
+        if raidPugs[pugName] then
+            local ep = self:get_ep_v3(guildMemberName) or 0
+            local message = string.format("Pug %s has %d EP", pugName, ep)
+            
+            -- Add to our delay queue [message, chattype, channelindex]
+            table.insert(self.DelayMsg, {message, "CHANNEL", pugChannel})
+            count = count + 1
+        end
+    end
+    
+    if count == 0 then
+        self:defaultPrint("No pugs found in the current raid.")
+        return
     end
     
     -- Start the sending process if not already running
@@ -3182,7 +3203,7 @@ function sepgp:updateAllPugEP()
         self:ScheduleRepeatingEvent("sepgp_SendDelayedMessages", self.ProcessDelayedMessages, 0.5, self)
     end
     
-    self:defaultPrint(string.format("Queued EP updates for %d Pug player(s) (sending one message every 0.5 seconds)", count))
+    self:defaultPrint(string.format("Queued EP updates for %d Pug player(s) in raid (sending one message every 0.5 seconds)", count))
 end
 
 function sepgp:ProcessDelayedMessages()
